@@ -3,9 +3,10 @@ SevSeg sevseg; //Instantiate a seven segment controller object
 
 #define PIN_WITH_RELAY_FOR_GATE_OPENING 10
 #define GATE_OPENING_DELAY 6
+#define SECONDS_THAT_GATE_OPENING_LASTS 3
 
 byte seconds_left_to_open_a_gate;
-byte seconds_gate_opening_lasts;
+byte seconds_left_to_stop_opening_gate;
 bool was_gate_opening_signal_triggered;
 bool is_aliveness_displayed;
 unsigned long timer_second;
@@ -41,7 +42,7 @@ void setup()
   // ---------- gate open timers -----------------
   seconds_left_to_open_a_gate = GATE_OPENING_DELAY;
   timer_second = millis();
-  seconds_gate_opening_lasts = 3 * 10; //multipled by 10 cause the timer runs every 0.1 second
+  seconds_left_to_stop_opening_gate = SECONDS_THAT_GATE_OPENING_LASTS * 10; //multipled by 10 cause the timer runs every 0.1 second
 
   // -------------------- other variables -------------
   was_gate_opening_signal_triggered = false;
@@ -51,20 +52,20 @@ void setup()
 void loop()
 {
   // ------------ couting down, delaying gate opening ----------------
-  if (seconds_left_to_open_a_gate > 0 && millis() >= timer_second)
+  if (AreStillSecondsLeftForOpeningAGate())
   {
     ShowSecondsRemainingToGateOpening();
   }
   // ------------ openining a gate procedure ----------------
-  if (seconds_left_to_open_a_gate == 0 && seconds_gate_opening_lasts > 0)
+  if (IsGateOpeningNow())
   {
-    GateOpeningSignalOnOff();
+    SetGateOpeningSignalOnOrOff();
     // and just some signalling on LED display where gate is open
     ShowGateIsOpening();
   }
 
   // ------------ just standby, and signalling aliveness ----------------
-  if (seconds_left_to_open_a_gate == 0 && seconds_gate_opening_lasts == 0)
+  if (WasGateOpenAlreadyAndJustOnStandByNow())
   {
     timer_second += ShowAliveness();
   }
@@ -80,7 +81,7 @@ void ShowSecondsRemainingToGateOpening()
   timer_miliSecond = millis(); //keeping track with second timer
 }
 
-void GateOpeningSignalOnOff()
+void SetGateOpeningSignalOnOrOff()
 {
   // door opening procedure done once :
   if (!was_gate_opening_signal_triggered)
@@ -89,7 +90,7 @@ void GateOpeningSignalOnOff()
     was_gate_opening_signal_triggered = true;
   }
   //just to omit delay() func, we want a relay to be opened for about 1 sec, not 5 sec like the gate is being opened.
-  if (was_gate_opening_signal_triggered && seconds_gate_opening_lasts < seconds_gate_opening_lasts * 3 / 4)
+  if (was_gate_opening_signal_triggered && seconds_left_to_stop_opening_gate < seconds_left_to_stop_opening_gate * 3 / 4)
   {
     digitalWrite(PIN_WITH_RELAY_FOR_GATE_OPENING, LOW);
   }
@@ -103,10 +104,31 @@ void ShowGateIsOpening()
     dashStringsPos++;
     if (dashStringsPos >= 3)
       dashStringsPos = 0;
-    seconds_gate_opening_lasts--;
+    seconds_left_to_stop_opening_gate--;
     timer_miliSecond += 100; //100 is 0.1 sec
     timer_second = millis(); //just keeping track for next function
   }
+}
+
+bool AreStillSecondsLeftForOpeningAGate()
+{
+  if (seconds_left_to_open_a_gate > 0 && millis() >= timer_second)
+    return true;
+  return false;
+}
+
+bool IsGateOpeningNow()
+{
+  if (seconds_left_to_open_a_gate == 0 && seconds_left_to_stop_opening_gate > 0)
+    return true;
+  return false;
+}
+
+bool WasGateOpenAlreadyAndJustOnStandByNow()
+{
+  if (seconds_left_to_open_a_gate == 0 && seconds_left_to_stop_opening_gate == 0)
+    return true;
+  return false;
 }
 
 unsigned long ShowAliveness()
